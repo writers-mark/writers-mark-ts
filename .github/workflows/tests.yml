@@ -27,7 +27,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request'}}
         env: 
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        run: npm coverage
+        run: npm run coverage
 
   Lint:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
