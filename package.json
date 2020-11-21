@@ -9,6 +9,7 @@
   "devDependencies": {
     "@types/rewire": "^2.5.28",
     "ava": "^3.13.0",
+    "codecov": "^3.8.1",
     "nyc": "^15.1.0",
     "prettier": "^2.2.0",
     "rewire": "^5.0.0",
@@ -19,6 +20,7 @@
   },
   "scripts": {
     "test": "nyc --reporter=lcov --reporter=text-summary ava",
+    "coverage": "codecov",
     "build": "tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "tslint -p tsconfig.json",
