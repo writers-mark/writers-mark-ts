@@ -4,6 +4,7 @@
 [![install size](https://packagephobia.com/badge?p=writers-mark)](https://packagephobia.com/result?p=writers-mark)
 [![github actions](https://github.com/writers-mark/writers-mark-ts/workflows/Tests/badge.svg)](https://github.com/FrancoisChabot/writers-mark/actions)
 [![Known Vulnerabilities](https://snyk.io/test/github/writers-mark/writers-mark-ts/badge.svg?targetFile=package.json)](https://snyk.io/test/github/FrancoisChabot/writers-mark?targetFile=package.json)
+[![codecov.io](https://codecov.io/github/writers-mark/writers-mark-ts/coverage.svg?branch=master)](https://codecov.io/github/writers-mark/writers-mark-ts?branch=master)
 
 Easy, safe and flexible markup for user-generated content.
 
