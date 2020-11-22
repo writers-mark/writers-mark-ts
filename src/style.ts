@@ -23,6 +23,23 @@ export interface Style {
   span: Record<string, SpanStyleRule>;
 }
 
+const clonePRule = (src: StyleRule): StyleRule => {
+  return { props: { ...src.props } };
+};
+
+const cloneSRule = (src: SpanStyleRule): SpanStyleRule => {
+  return {
+    props: { ...src.props },
+    endPattern: src.endPattern,
+  };
+};
+
+export const appendToStyleRule = (dst: StyleRule, src: StyleRule): void => {
+  for (const srcKey of Object.keys(src.props)) {
+    dst.props[srcKey] = src.props[srcKey];
+  }
+};
+
 // Regular expression patterns
 const nameKey = 'key';
 const closeKey = 'close';
@@ -146,4 +163,36 @@ export const compile = (data: string, options?: Options): Style => {
   }
 
   return { paragraph, span };
+};
+
+export const combineStyles = (styles: Style[]): Style => {
+  const result: Style = {
+    /** Rules that can apply to paragraphs */
+    paragraph: {},
+
+    /** Rules that can apply to spans */
+    span: {},
+  };
+
+  for (const src of styles) {
+    for (const pSrc of Object.keys(src.paragraph)) {
+      const existing = result.paragraph[pSrc];
+      if (existing) {
+        appendToStyleRule(existing, src.paragraph[pSrc]);
+      } else {
+        result.paragraph[pSrc] = clonePRule(src.paragraph[pSrc]);
+      }
+    }
+
+    for (const pSrc of Object.keys(src.span)) {
+      const existing = result.span[pSrc];
+      if (existing) {
+        appendToStyleRule(existing, src.span[pSrc]);
+      } else {
+        result.span[pSrc] = cloneSRule(src.span[pSrc]);
+      }
+    }
+  }
+
+  return result;
 };

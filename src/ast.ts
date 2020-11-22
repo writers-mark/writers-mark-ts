@@ -1,4 +1,5 @@
-import { Style } from './style';
+import { Options } from '.';
+import { Style, compile as compileStyle, combineStyles } from './style';
 
 export type Block = (string | SpanSection)[];
 
@@ -14,7 +15,7 @@ export interface Paragraph {
 
 export interface AST {
   paragraphs: Paragraph[];
-  inlineStyle?: Style;
+  style?: Style;
 }
 
 export interface SplitContent {
@@ -203,17 +204,21 @@ export const compileParagraph = (data: string[], style: Style): Paragraph => {
  * @param data The raw string to interpret.
  * @param style The style to apply.
  */
-export const compile = (data: string, style: Style): AST => {
+export const compile = (data: string, style: Style, options?: Options): AST => {
   const paragraphs: Paragraph[] = [];
-  for (const rawP of splitParagraphs(data).paragraphs) {
+  const splitData = splitParagraphs(data);
+
+  if (splitData.edgeMatter.length > 0) {
+    const inlineStyle = compileStyle(splitData.edgeMatter.join('\n'), options);
+    style = combineStyles([style, inlineStyle]);
+  }
+
+  for (const rawP of splitData.paragraphs) {
     paragraphs.push(compileParagraph(rawP, style));
   }
 
   return {
     paragraphs,
-    inlineStyle: {
-      paragraph: {},
-      span: {},
-    },
+    style,
   };
 };
