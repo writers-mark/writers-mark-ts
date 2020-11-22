@@ -2,6 +2,8 @@ import * as style from '../style';
 import * as ast from '../ast';
 import test from 'ava';
 
+/* tslint:disable:no-string-literal */
+
 const testStyle = style.compile(
   'p aaa {color: red;} s * {color: green;} s _ {color: grey;} s ** {color: blue;} s <b> </b> {color: black;}',
 );
@@ -106,23 +108,30 @@ test('Explicitely closed rule', (t) => {
   ]);
 });
 
-/*
-test('Adjacent similar rules end', (t) => {
-  const compiled = ast.compile('a**bb*c***d', testStyle);
-
-  t.deepEqual(compiled.paragraphs[0].contents, [
-    'a',
-    {
-      contents: [
-        'bb',
-        {
-          contents: ['c'],
-          style: '*',
-        }
-      ],
-      style: '**',
-    },
-    'd',
-  ]);
+test('with front matter', (t) => {
+  const compiled = ast.compile('---\np abc {}\n---\nabc\nallo\n\naaa\nworld', testStyle);
+  t.is(compiled.paragraphs[0].styles![0], 'abc');
+  t.is(compiled.paragraphs[1].styles![0], 'aaa');
 });
-*/
+
+test('modified p style - replace', (t) => {
+  const compiled = ast.compile('---\np aaa {color: blue;}\n---\naaa\nworld', testStyle);
+  t.is(compiled.style!.paragraph['aaa'].props['color'], 'blue');
+});
+
+test('modified p style - append', (t) => {
+  const compiled = ast.compile('---\np aaa {font: blue;}\n---\naaa\nworld', testStyle);
+  t.is(compiled.style!.paragraph['aaa'].props['color'], 'red');
+  t.is(compiled.style!.paragraph['aaa'].props['font'], 'blue');
+});
+
+test('modified s style - replace', (t) => {
+  const compiled = ast.compile('---\ns * {color: blue;}\n---\naaa\nworld', testStyle);
+  t.is(compiled.style!.span['*'].props['color'], 'blue');
+});
+
+test('modified s style - append', (t) => {
+  const compiled = ast.compile('---\ns * {font: blue;}\n---\naaa\nworld', testStyle);
+  t.is(compiled.style!.span['*'].props['color'], 'green');
+  t.is(compiled.style!.span['*'].props['font'], 'blue');
+});

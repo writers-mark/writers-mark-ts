@@ -35,9 +35,9 @@ test('unterminated end matter', (t) => {
 
 test('extract front matter', (t) => {
   const data = ['---', 'aaa', '---', 'bbb'];
-  const front_matter = ast.extractEdgeMatter(data);
-  t.is(front_matter.length, 1);
-  t.is(front_matter[0], 'aaa');
+  const frontMatter = ast.extractEdgeMatter(data);
+  t.is(frontMatter.length, 1);
+  t.is(frontMatter[0], 'aaa');
 
   t.is(data.length, 1);
   t.is(data[0], 'bbb');
@@ -45,16 +45,16 @@ test('extract front matter', (t) => {
 
 test('extract front matter after blank', (t) => {
   const data = ['   ', '---', 'aaa', '---'];
-  const front_matter = ast.extractEdgeMatter(data);
-  t.is(front_matter.length, 1);
-  t.is(front_matter[0], 'aaa');
+  const frontMatter = ast.extractEdgeMatter(data);
+  t.is(frontMatter.length, 1);
+  t.is(frontMatter[0], 'aaa');
 });
 
 test('extract back matter', (t) => {
   const data = ['bbb', '---', 'aaa', '---'];
-  const front_matter = ast.extractEdgeMatter(data);
-  t.is(front_matter.length, 1);
-  t.is(front_matter[0], 'aaa');
+  const frontMatter = ast.extractEdgeMatter(data);
+  t.is(frontMatter.length, 1);
+  t.is(frontMatter[0], 'aaa');
 
   t.is(data.length, 1);
   t.is(data[0], 'bbb');
@@ -62,8 +62,8 @@ test('extract back matter', (t) => {
 
 test('extract two matters', (t) => {
   const data = ['---', 'aaa', '---', 'bbb', '---', 'ccc', '---'];
-  const front_matter = ast.extractEdgeMatter(data);
-  t.deepEqual(front_matter, ['aaa', 'ccc']);
+  const frontMatter = ast.extractEdgeMatter(data);
+  t.deepEqual(frontMatter, ['aaa', 'ccc']);
 
   t.is(data.length, 1);
   t.is(data[0], 'bbb');
@@ -71,8 +71,8 @@ test('extract two matters', (t) => {
 
 test('almost extract two matters', (t) => {
   const data = ['---', 'aaa', '---', 'bbb', '---', 'ccc', '---', 'ddd'];
-  const front_matter = ast.extractEdgeMatter(data);
-  t.deepEqual(front_matter, ['aaa']);
+  const frontMatter = ast.extractEdgeMatter(data);
+  t.deepEqual(frontMatter, ['aaa']);
 
   t.is(data.length, 5);
   t.is(data[0], 'bbb');
