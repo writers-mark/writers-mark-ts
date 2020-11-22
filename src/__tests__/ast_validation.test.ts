@@ -5,7 +5,7 @@ import test from 'ava';
 const testStyle = style.compile('p aaa {color: red;} s * {color: green;}');
 
 test('Empty string is fine', (t) => {
-  t.true(ast.isValid({ paragraphs: [] }, testStyle));
+  t.true(ast.isValid({ paragraphs: [], style: { paragraph: {}, span: {} } }));
 });
 
 test('extract no edge matter from nothing', (t) => {
@@ -80,131 +80,117 @@ test('almost extract two matters', (t) => {
 
 test('No format used is fine', (t) => {
   t.true(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: ['this is some text'],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: ['this is some text'],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 });
 
 test('Paragraph style', (t) => {
   t.true(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: ['this is some text'],
-            styles: ['aaa'],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: ['this is some text'],
+          styles: ['aaa'],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 
   t.false(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: ['this is some text'],
-            styles: ['bbb'],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: ['this is some text'],
+          styles: ['bbb'],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 });
 
 test('span style', (t) => {
   t.true(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: [
-              {
-                contents: ['hi there'],
-                style: '*',
-              },
-            ],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: [
+            {
+              contents: ['hi there'],
+              style: '*',
+            },
+          ],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 
   t.false(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: [
-              {
-                contents: ['hi there'],
-                style: '**',
-              },
-            ],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: [
+            {
+              contents: ['hi there'],
+              style: '**',
+            },
+          ],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 });
 
 test('nested span style', (t) => {
   t.true(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: [
-              {
-                contents: [
-                  {
-                    contents: ['yo'],
-                    style: '*',
-                  },
-                ],
-                style: '*',
-              },
-            ],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: [
+            {
+              contents: [
+                {
+                  contents: ['yo'],
+                  style: '*',
+                },
+              ],
+              style: '*',
+            },
+          ],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 
   t.false(
-    ast.isValid(
-      {
-        paragraphs: [
-          {
-            contents: [
-              {
-                contents: [
-                  {
-                    contents: ['yo'],
-                    style: '&',
-                  },
-                ],
-                style: '*',
-              },
-            ],
-          },
-        ],
-      },
-      testStyle,
-    ),
+    ast.isValid({
+      paragraphs: [
+        {
+          contents: [
+            {
+              contents: [
+                {
+                  contents: ['yo'],
+                  style: '&',
+                },
+              ],
+              style: '*',
+            },
+          ],
+        },
+      ],
+      style: testStyle,
+    }),
   );
 });

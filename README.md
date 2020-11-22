@@ -131,7 +131,7 @@ const ast_str = JSON.stringify(ast);
 const recovered_style = JSON.parse(style_str);
 const recovered_ast = JSON.parse(ast_str);
 
-if(isStyleValid(recovered_style) && isAstValid(recovered_style, recovered_ast)) {
+if(isStyleValid(recovered_style) && isAstValid(recovered_ast)) {
   ...
 }
 
