@@ -14,6 +14,12 @@ export interface Paragraph {
 
 export interface AST {
   paragraphs: Paragraph[];
+  inlineStyle?: Style;
+}
+
+export interface SplitContent {
+  paragraphs: string[][];
+  edgeMatter: string[];
 }
 
 const applySpanStyles = (data: string, style: Style): Block => {
@@ -93,18 +99,61 @@ export const isValid = (ast: AST, style: Style): boolean => {
   return true;
 };
 
+const eleminateTrailingBlanks = (lines: string[]): void => {
+  while (lines.length > 0 && lines[0] === '') {
+    lines.shift();
+  }
+
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+};
+
+/** Extracts and returns any edge matter present are removes it from the passed array  */
+export const extractEdgeMatter = (lines: string[]): string[] => {
+  if (lines.length < 2) {
+    return [];
+  }
+
+  let result: string[] = [];
+
+  // If there is front-matter
+  if (lines[0] === '---') {
+    const frontMatterEnd = lines.indexOf('---', 1);
+    if (frontMatterEnd !== -1) {
+      result = lines.slice(1, frontMatterEnd);
+      lines.splice(0, frontMatterEnd + 1);
+    }
+  }
+
+  // If there is back-matter
+  if (lines.length > 1 && lines[lines.length - 1] === '---') {
+    const endMatterStart = lines.lastIndexOf('---', lines.length - 2);
+    if (endMatterStart !== -1) {
+      result = result.concat(lines.slice(endMatterStart + 1, lines.length - 1));
+      lines.splice(endMatterStart);
+    }
+  }
+
+  return result;
+};
+
 /** Splits raw text into a sequence of paragraphs.
  * @param data The raw string to interpret.
  */
-export function* splitParagraphs(data: string) {
-  const lines = data.split('\n');
-  let current: string[] = [];
+export const splitParagraphs = (data: string): SplitContent => {
+  const lines = data.split('\n').map((s) => s.trim());
 
-  for (let line of lines) {
-    line = line.trim();
+  eleminateTrailingBlanks(lines);
+  const edgeMatter = extractEdgeMatter(lines);
+
+  const paragraphs: string[][] = [];
+
+  let current: string[] = [];
+  for (const line of lines) {
     if (line === '') {
       if (current.length > 0) {
-        yield current;
+        paragraphs.push(current);
         current = [];
       }
     } else {
@@ -113,10 +162,12 @@ export function* splitParagraphs(data: string) {
   }
 
   if (current.length > 0) {
-    yield current;
+    paragraphs.push(current);
     current = [];
   }
-}
+
+  return { paragraphs, edgeMatter };
+};
 
 /** Converts a raw paragraph into the final AST form.
  * @param data The paragraph data as returned from splitParagraphs()
@@ -154,11 +205,15 @@ export const compileParagraph = (data: string[], style: Style): Paragraph => {
  */
 export const compile = (data: string, style: Style): AST => {
   const paragraphs: Paragraph[] = [];
-  for (const rawP of splitParagraphs(data)) {
+  for (const rawP of splitParagraphs(data).paragraphs) {
     paragraphs.push(compileParagraph(rawP, style));
   }
 
   return {
     paragraphs,
+    inlineStyle: {
+      paragraph: {},
+      span: {},
+    },
   };
 };

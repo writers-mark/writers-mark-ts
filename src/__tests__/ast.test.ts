@@ -7,6 +7,8 @@ const testStyle = style.compile(
 );
 
 test('Breaks down paragraphs', (t) => {
+  t.is(ast.compile('', testStyle).paragraphs.length, 0);
+  t.is(ast.compile('  \n  ', testStyle).paragraphs.length, 0);
   t.is(ast.compile('a simple one line', testStyle).paragraphs.length, 1);
   t.is(ast.compile('\na simple one line', testStyle).paragraphs.length, 1);
   t.is(ast.compile('\n\na simple one line', testStyle).paragraphs.length, 1);
