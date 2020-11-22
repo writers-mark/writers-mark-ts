@@ -15,7 +15,7 @@ export interface Paragraph {
 
 export interface AST {
   paragraphs: Paragraph[];
-  style?: Style;
+  style: Style;
 }
 
 export interface SplitContent {
@@ -70,7 +70,9 @@ const applySpanStyles = (data: string, style: Style): Block => {
  * @param ast The ast to validate.
  * @param style The style to apply.
  */
-export const isValid = (ast: AST, style: Style): boolean => {
+export const isValid = (ast: AST): boolean => {
+  const style = ast.style;
+
   const blockIsValid = (block: Block): boolean => {
     for (const s of block) {
       const asSection = s as SpanSection;
