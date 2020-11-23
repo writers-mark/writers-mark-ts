@@ -1,8 +1,11 @@
-import * as Style from './style';
-import * as Text from './text';
+import * as StyleNS from './style';
+import * as TextNS from './text';
 import { CompiledWhitelist, compileWhitelist } from './whitelist';
 
 const defaultCommonProps: string[] = ['color', 'background-color', 'font*', 'text-decoration'];
+
+type Style = StyleNS.Style;
+type Text = TextNS.CompiledText;
 
 /** CSS property whitelist. */
 interface Whitelist {
@@ -50,8 +53,8 @@ class Context {
    * @param data The raw style string to compile
    * @returns The compiled style, ready to be passed to compileText().
    */
-  compileStyle(data: string): Style.Style {
-    return Style.compile(data, this.whitelist);
+  compileStyle(data: string): Style {
+    return StyleNS.compile(data, this.whitelist);
   }
 
   /** Performs a full compilation of a text all at once.
@@ -59,15 +62,15 @@ class Context {
    * @param styles Styles to be applied to the text.
    * @returns The compiled text.
    */
-  compileText(text: string, styles: Style.Style[]): Text.CompiledText {
-    const precompiled = Text.precompile(text);
+  compileText(text: string, styles: Style[]): Text {
+    const precompiled = TextNS.precompile(text);
 
-    const compiledEdgeMatter = Text.compileEdgeMatter(precompiled.edgeMatter, this.whitelist);
+    const compiledEdgeMatter = TextNS.compileEdgeMatter(precompiled.edgeMatter, this.whitelist);
 
     styles = [...styles, compiledEdgeMatter.style];
 
-    const styleLut = Style.buildLUT(styles);
-    const paragraphs = precompiled.paragraphs.map((p) => Text.compileParagraph(p, styleLut));
+    const styleLut = StyleNS.buildLUT(styles);
+    const paragraphs = precompiled.paragraphs.map((p) => TextNS.compileParagraph(p, styleLut));
 
     return { paragraphs, styles };
   }
@@ -76,17 +79,17 @@ class Context {
    * @param style The style to validate
    * @returns Whether or not the style is safe to use.
    */
-  isStyleValid(style: Style.Style): boolean {
-    return Style.isValid(style, this.whitelist);
+  isStyleValid(style: Style): boolean {
+    return StyleNS.isValid(style, this.whitelist);
   }
 
   /** Validates that a text is safely usable. Meant to be used after deserialization.
    * @param text The text to validate
    * @returns Whether or not the text is safe to use.
    */
-  isTextValid(text: Text.CompiledText): boolean {
-    return Text.isValid(text, this.whitelist);
+  isTextValid(text: Text): boolean {
+    return TextNS.isValid(text, this.whitelist);
   }
 }
 
-export { Options, Context, Whitelist, defaultWhitelist };
+export { Options, Context, Whitelist, defaultWhitelist, Style, Text };
