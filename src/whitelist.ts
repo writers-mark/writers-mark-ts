@@ -1,3 +1,5 @@
+import { Whitelist } from './index';
+
 /** Straigforward TRIE node. */
 interface Node {
   wildcard: boolean;
@@ -37,7 +39,7 @@ const insert = (pattern: string, target: Node) => {
   }
 };
 
-export class Whitelist {
+export class WhitelistFilter {
   root: Node = { wildcard: false, terminator: false, children: new Map<string, Node>() };
 
   constructor(patterns: string[]) {
@@ -63,3 +65,17 @@ export class Whitelist {
     return current.terminator;
   }
 }
+
+export interface CompiledWhitelist {
+  para: WhitelistFilter;
+  span: WhitelistFilter;
+  cont: WhitelistFilter;
+}
+
+export const compileWhitelist = (raw: Whitelist): CompiledWhitelist => {
+  return {
+    para: new WhitelistFilter(raw.para),
+    span: new WhitelistFilter(raw.span),
+    cont: new WhitelistFilter(raw.cont),
+  };
+};

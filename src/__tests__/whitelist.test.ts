@@ -1,57 +1,83 @@
-import { Whitelist } from '../whitelist';
-import test from 'ava';
+import { compileWhitelist } from '../whitelist';
 
-test('Simple matches', (t) => {
-  const wl = new Whitelist(['abc', 'def']);
+/* tslint:disable:no-string-literal */
 
-  t.true(wl.allows('abc'));
-  t.true(wl.allows('def'));
+describe('Blank Whitelist', () => {
+  const sut = compileWhitelist({ para: [], span: [], cont: [] });
 
-  t.false(wl.allows('xyz'));
-  t.false(wl.allows('ab'));
-  t.false(wl.allows('abcd'));
+  it('disallows the empty string', () => {
+    expect(sut.para.allows('')).toBe(false);
+    expect(sut.span.allows('')).toBe(false);
+    expect(sut.cont.allows('')).toBe(false);
+  });
+
+  it('disallows non-empty string', () => {
+    expect(sut.para.allows('abc')).toBe(false);
+    expect(sut.span.allows('abc')).toBe(false);
+    expect(sut.cont.allows('abc')).toBe(false);
+  });
 });
 
-test('Overlapping Whitelists', (t) => {
-  const wl = new Whitelist(['ab', 'abc']);
+describe('Simple Whitelist', () => {
+  const sut = compileWhitelist({ para: ['abc'], span: ['def'], cont: ['xyz'] });
 
-  t.true(wl.allows('ab'));
-  t.true(wl.allows('abc'));
+  it('disallows the empty string', () => {
+    expect(sut.para.allows('')).toBe(false);
+    expect(sut.span.allows('')).toBe(false);
+    expect(sut.cont.allows('')).toBe(false);
+  });
 
-  t.false(wl.allows('a'));
-  t.false(wl.allows('abcd'));
+  it('Allows pattern', () => {
+    expect(sut.para.allows('abc')).toBe(true);
+    expect(sut.span.allows('def')).toBe(true);
+    expect(sut.cont.allows('xyz')).toBe(true);
+  });
+
+  it('Does not cross-talk', () => {
+    expect(sut.para.allows('def')).toBe(false);
+    expect(sut.span.allows('xyz')).toBe(false);
+    expect(sut.cont.allows('abc')).toBe(false);
+  });
+
+  it('Does not pass prefix or postfix', () => {
+    expect(sut.para.allows('ab')).toBe(false);
+    expect(sut.para.allows('abcd')).toBe(false);
+  });
 });
 
-test('Overlapping Whitelist rev', (t) => {
-  const wl = new Whitelist(['abc', 'ab']);
+describe('Multi Pattern Whitelist', () => {
+  const sut = compileWhitelist({ para: ['abc', 'ab', 'de', 'def'], span: [], cont: [] });
 
-  t.true(wl.allows('ab'));
-  t.true(wl.allows('abc'));
-
-  t.false(wl.allows('a'));
-  t.false(wl.allows('abcd'));
+  it('Works for all patterns', () => {
+    expect(sut.para.allows('abc')).toBe(true);
+    expect(sut.para.allows('ab')).toBe(true);
+    expect(sut.para.allows('de')).toBe(true);
+    expect(sut.para.allows('def')).toBe(true);
+  });
 });
 
-test('Wildcarding Whitelist', (t) => {
-  const wl = new Whitelist(['ab*']);
+describe('Wildcard Whitelist', () => {
+  const sut = compileWhitelist({ para: ['ab*'], span: [], cont: [] });
 
-  t.true(wl.allows('ab'));
-  t.true(wl.allows('abc'));
-  t.true(wl.allows('abcd'));
-  t.true(wl.allows('abcde'));
+  it('Passes the exact string', () => {
+    expect(sut.para.allows('ab')).toBe(true);
+  });
 
-  t.false(wl.allows('a'));
-  t.false(wl.allows('dab'));
+  it('Refuses too short', () => {
+    expect(sut.para.allows('a')).toBe(false);
+  });
+
+  it('Accepts continuation', () => {
+    expect(sut.para.allows('abcd')).toBe(true);
+    expect(sut.para.allows('abcde')).toBe(true);
+  });
 });
 
-test('Appending Wildcard', (t) => {
-  const wl = new Whitelist(['abcd', 'ab*']);
+describe('Redundant Wildcard Whitelist', () => {
+  const sut = compileWhitelist({ para: ['ab*', 'ab', 'de', 'de*'], span: [], cont: [] });
 
-  t.true(wl.allows('ab'));
-  t.true(wl.allows('abc'));
-  t.true(wl.allows('abcd'));
-  t.true(wl.allows('abcde'));
-
-  t.false(wl.allows('a'));
-  t.false(wl.allows('dab'));
+  it('Works for prefixes', () => {
+    expect(sut.para.allows('ab')).toBe(true);
+    expect(sut.para.allows('de')).toBe(true);
+  });
 });
