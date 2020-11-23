@@ -53,8 +53,9 @@ Stars denote postfix wildcards.
 ```
 const ctx = new Context({
   para: ['text-align', 'margin*'],
-  span: ['font-weight']});
-  cont: []
+  span: ['font-weight'],
+  cont: [],
+});
 ```
 
 ### Safety
