@@ -2,7 +2,16 @@ import * as StyleNS from './style';
 import * as TextNS from './text';
 import { CompiledWhitelist, compileWhitelist } from './whitelist';
 
-const defaultCommonProps: string[] = ['color', 'background-color', 'font*', 'text-decoration'];
+const defaultCommonProps: string[] = [
+  'background-color',
+  'border',
+  'color',
+  'color',
+  'font-family',
+  'font-style',
+  'font-weight',
+  'text-decoration',
+];
 
 type Style = StyleNS.Style;
 type Text = TextNS.CompiledText;
@@ -21,7 +30,7 @@ interface Whitelist {
 
 /** The default set of allowed CSS properties */
 const defaultWhitelist: Whitelist = {
-  para: [...defaultCommonProps, 'margin*', 'border', 'text-align'],
+  para: [...defaultCommonProps, 'text-align', 'margin', 'padding'],
   span: [...defaultCommonProps],
   cont: [...defaultCommonProps],
 };
