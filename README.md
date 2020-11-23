@@ -43,11 +43,11 @@ if(context.isStyleValid(recoveredStyle) && context.isTextValid(recoveredText)) {
 }
 ```
 
-Rendering the ast is not within the scope of this module, please see [writers-mark-dom](https://github.com/writers-mark/writers-mark-dom) or [writers-mark-react](https://github.com/writers-mark/writers-mark-react) for that.
+Rendering the text as HTML/CSS is not within the scope of this module, please see [writers-mark-dom](https://github.com/writers-mark/writers-mark-dom) or [writers-mark-react](https://github.com/writers-mark/writers-mark-react) for that.
 
 ### CSS Whitelist
 
-While the library has sane defaults for allowed css properties, you are free to override the whitelist.
+While the library has sane defaults for allowed CSS properties, you are free to override the whitelist.
 Stars denote postfix wildcards.
 
 ```
