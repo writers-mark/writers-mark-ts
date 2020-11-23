@@ -136,6 +136,15 @@ describe('Span Rules', () => {
   });
 });
 
+describe('With space in value', () => {
+  const compiled = compile('span abc {def: 32px 0px;}', simpleWhitelist);
+
+  it('extracted the property', () => {
+    expect(Object.keys(compiled.span).length).toBe(1);
+    expect(compiled.span['abc'].props['def']).toBe('32px 0px');
+  });
+});
+
 describe('Cont Rules', () => {
   describe('Minimal', () => {
     const compiled = compile('cont {}', blankWhitelist);

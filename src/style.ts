@@ -59,6 +59,18 @@ const token = (p: Parser, term: string): string => {
   return result;
 };
 
+const readValue = (p: Parser): string => {
+  skipWs(p);
+
+  let tokEnd = p.cursor;
+  while (tokEnd < p.data.length && p.data[tokEnd] !== ';' && p.data.slice(tokEnd).trim() !== '') {
+    ++tokEnd;
+  }
+  const result = p.data.slice(p.cursor, tokEnd);
+  p.cursor = tokEnd;
+  return result;
+};
+
 export const compile = (data: string, whitelist: CompiledWhitelist): Style => {
   const para: Record<string, ParaStyleRule> = {};
   const span: Record<string, SpanStyleRule> = {};
@@ -82,7 +94,7 @@ export const compile = (data: string, whitelist: CompiledWhitelist): Style => {
       while (subP.cursor < payload.length) {
         const key = token(subP, ':');
         if (key !== '' && maybe(subP, ':')) {
-          const value = token(subP, ';');
+          const value = readValue(subP);
           if (value !== '' && maybe(subP, ';')) {
             if (filter.allows(key) && allowValue(key, value)) {
               result[key] = value;
