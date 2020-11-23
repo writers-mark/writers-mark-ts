@@ -55,29 +55,3 @@ describe('Multi Pattern Whitelist', () => {
     expect(sut.para.allows('def')).toBe(true);
   });
 });
-
-describe('Wildcard Whitelist', () => {
-  const sut = compileWhitelist({ para: ['ab*'], span: [], cont: [] });
-
-  it('Passes the exact string', () => {
-    expect(sut.para.allows('ab')).toBe(true);
-  });
-
-  it('Refuses too short', () => {
-    expect(sut.para.allows('a')).toBe(false);
-  });
-
-  it('Accepts continuation', () => {
-    expect(sut.para.allows('abcd')).toBe(true);
-    expect(sut.para.allows('abcde')).toBe(true);
-  });
-});
-
-describe('Redundant Wildcard Whitelist', () => {
-  const sut = compileWhitelist({ para: ['ab*', 'ab', 'de', 'de*'], span: [], cont: [] });
-
-  it('Works for prefixes', () => {
-    expect(sut.para.allows('ab')).toBe(true);
-    expect(sut.para.allows('de')).toBe(true);
-  });
-});
