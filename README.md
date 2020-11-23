@@ -52,7 +52,7 @@ Stars denote postfix wildcards.
 
 ```
 const ctx = new Context({
-  para: ['text-align', 'margin*'],
+  para: ['text-align', 'margin', 'margin-left'],
   span: ['font-weight'],
   cont: [],
 });

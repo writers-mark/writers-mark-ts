@@ -2,7 +2,6 @@ import { Whitelist } from './index';
 
 /** Straigforward TRIE node. */
 interface Node {
-  wildcard: boolean;
   terminator: boolean;
   children: Map<string, Node>;
 }
@@ -13,34 +12,29 @@ const insert = (pattern: string, target: Node) => {
 
   const existing = target.children.get(key);
   if (existing) {
-    if (rest === '*') {
-      existing.wildcard = true;
-    }
     if (rest.length === 0) {
       existing.terminator = true;
     } else {
       insert(rest, existing);
     }
   } else {
-    const wildcard = rest === '*';
     const terminator = rest.length === 0;
     const children = new Map<string, Node>();
 
     const newNode = {
-      wildcard,
       terminator,
       children,
     };
 
     target.children.set(key, newNode);
-    if (!wildcard && !terminator) {
+    if (!terminator) {
       insert(rest, newNode);
     }
   }
 };
 
 export class WhitelistFilter {
-  root: Node = { wildcard: false, terminator: false, children: new Map<string, Node>() };
+  root: Node = { terminator: false, children: new Map<string, Node>() };
 
   constructor(patterns: string[]) {
     for (const p of patterns) {
@@ -56,9 +50,6 @@ export class WhitelistFilter {
         return false;
       } else {
         current = next;
-        if (next.wildcard) {
-          return true;
-        }
       }
     }
 

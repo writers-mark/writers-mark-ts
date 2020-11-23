@@ -5,15 +5,7 @@
  * @param value The value we want to assign to the property.
  */
 export const allowValue = (property: string, value: string): boolean => {
-  // Properties MUST be only lower-case letters and hyphens.
-  for (let i = 0; i < property.length; i++) {
-    const code = property.charCodeAt(i);
-    if ((code < 97 || code > 122) && code !== 45) {
-      return false;
-    }
-  }
-
-  // Values are a little looser.
+  // Santitze "dangerous" characters,
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i);
     //                                      "              '              :              ;              \
