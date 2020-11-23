@@ -6,7 +6,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/writers-mark/writers-mark-ts/badge.svg?targetFile=package.json)](https://snyk.io/test/github/FrancoisChabot/writers-mark?targetFile=package.json)
 [![codecov.io](https://codecov.io/github/writers-mark/writers-mark-ts/coverage.svg?branch=master)](https://codecov.io/github/writers-mark/writers-mark-ts?branch=master)
 
-Core functionalities for [https://github.com/writers-mark/writers-mark](Writer's Mark).
+Core functionalities for [Writer's Mark](https://github.com/writers-mark/writers-mark).
 
 ## Getting started
 
