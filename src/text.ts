@@ -1,4 +1,5 @@
 import * as Style from './style';
+import { Trie } from './trie';
 import { CompiledWhitelist } from './whitelist';
 
 const EDGEMATTER_DELIMITER = '---';
@@ -14,11 +15,26 @@ export interface CompiledEdgeMatter {
   style: Style.Style;
 }
 
-export type Content = string | Span;
+export type Content = string | Span | Link;
 export interface Span {
   contents: Content[];
   styles: string[];
 }
+
+export interface Link {
+  url: string;
+  contents: Content[];
+}
+
+export const isSpan = (x: string | Span | Link): x is Span => {
+  const asSpan = x as Span;
+  return asSpan.contents !== undefined && asSpan.styles !== undefined;
+};
+
+export const isLink = (x: string | Span | Link): x is Span => {
+  const asLink = x as Link;
+  return asLink.url !== undefined && asLink.contents !== undefined;
+};
 
 export interface CompiledParagraph {
   contents: Content[];
@@ -99,48 +115,65 @@ export const compileEdgeMatter = (data: string, whitelist: CompiledWhitelist): C
   return { style: Style.compile(data, whitelist) };
 };
 
-const applySpanRules = (data: string, styleLut: Style.StyleLUT): Content[] => {
-  let rule = '';
-  let start = data.length;
-  let payloadStart = data.length;
-  let end = data.length;
-  let postEnd = data.length;
-
-  for (const bPat of Object.keys(styleLut.span)) {
-    const ePat = styleLut.span[bPat];
-    const startMatch = data.indexOf(bPat);
-    if (startMatch === -1 || startMatch > start || (startMatch === start && bPat.length < rule.length)) {
-      continue;
-    }
-
-    const payloadStartMatch = startMatch + bPat.length;
-    const endMatch = data.indexOf(ePat, payloadStartMatch);
-    if (endMatch === -1) {
-      continue;
-    }
-
-    rule = bPat;
-    start = startMatch;
-    payloadStart = payloadStartMatch;
-    end = endMatch;
-    postEnd = end + ePat.length;
+const applySpanRules = (raw: string, styleLut: Style.StyleLUT): Content[] => {
+  interface Entry {
+    tgt: Content[];
+    data: string;
   }
+  const queue: Entry[] = [];
+  const apply = (tgt: Content[], data: string) => {
+    queue.push({ tgt, data });
+  };
 
-  if (rule !== '') {
-    const prefix = data.substr(0, start);
-    const current = {
-      contents: applySpanRules(data.substr(payloadStart, end - payloadStart), styleLut),
-      styles: [rule],
-    };
-    const postfixStr = data.substr(postEnd);
+  const result: Content[] = [];
+  apply(result, raw);
 
-    const postfixArray = postfixStr.length > 0 ? applySpanRules(data.substr(postEnd), styleLut) : [];
-    const prefixArray = prefix.length > 0 ? [prefix] : [];
+  while (queue.length !== 0) {
+    const { data, tgt } = queue.shift()!;
+    let startAt = 0;
 
-    return [...prefixArray, current, ...postfixArray];
-  } else {
-    return [data];
+    let matchMade = false;
+    while (!matchMade && startAt < data.length) {
+      const [pos, matches] = styleLut.spanTrie.firstFirstMatch(data, startAt);
+      if (pos === -1) {
+        break;
+      } else {
+        for (const pBeg of matches) {
+          const pEnd = styleLut.span[pBeg];
+
+          const pEndLoc = data.indexOf(pEnd, pos + 1);
+          // If the end token is found and is not immediately after the start.
+          if (pEndLoc !== -1 && pEndLoc !== pos + pBeg.length) {
+            matchMade = true;
+            // Anything up to the rule start gets used as-is.
+            if (pos !== 0) tgt.push(data.slice(0, pos));
+
+            // The new span gets added to the target, and its contents needs to be handled.
+            const newSpan: Span = { contents: [], styles: [pBeg] };
+            tgt.push(newSpan);
+            apply(newSpan.contents, data.slice(pos + pBeg.length, pEndLoc));
+
+            // Anything past the span needs to be handled.
+            const postFixPos = pEndLoc + pEnd.length;
+            if (postFixPos < data.length) {
+              apply(tgt, data.slice(postFixPos));
+            }
+          }
+        }
+
+        // Next loop will start one character after the start of the previous match.
+        startAt = pos + 1;
+      }
+    }
+    if (!matchMade) {
+      tgt.push(data);
+    }
   }
+  return result;
+};
+
+export const extractLinks = (data: string): (string | Link)[] => {
+  return [];
 };
 
 export const compileParagraph = (p: Paragraph, styleLut: Style.StyleLUT): CompiledParagraph => {
@@ -161,7 +194,16 @@ export const compileParagraph = (p: Paragraph, styleLut: Style.StyleLUT): Compil
     }
   }
 
-  // Step 2: apply span rules.
+  // Step 2: extract Links
+  //  const links = extractLinks(text);
+
+  // The tricky thing is supporting aaa**pre [aaa](http://google.com) post**bbb
+  // where ["aaa**pre" , {...}, "post**bbb"]
+  // needs to transform into
+  // ["aaa", {contents:["pre", {...}, "post"]}, "bbb"]
+
+  // Step 3: apply span rules.
+  // const contents = applySpanRulesRoot(links, styleLut);
   const contents = applySpanRules(text, styleLut);
   return { contents, styles };
 };

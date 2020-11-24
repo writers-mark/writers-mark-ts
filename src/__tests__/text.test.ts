@@ -218,5 +218,11 @@ describe('Style span', () => {
     expect(compileParagraph(['__hi _there_ world__'], sLUT).contents).toStrictEqual([
       { styles: ['__'], contents: ['hi ', { contents: ['there'], styles: ['_'] }, ' world'] },
     ]);
+
+    expect(compileParagraph(['**hi _there_ world'], sLUT).contents).toStrictEqual([
+      '**hi ',
+      { contents: ['there'], styles: ['_'] },
+      ' world',
+    ]);
   });
 });
