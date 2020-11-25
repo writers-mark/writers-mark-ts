@@ -28,34 +28,41 @@ interface Whitelist {
   cont: string[];
 }
 
-/** The default set of allowed CSS properties */
-const defaultWhitelist: Whitelist = {
-  para: [...defaultCommonProps, 'text-align', 'margin', 'padding'],
-  span: [...defaultCommonProps],
-  cont: [...defaultCommonProps],
-};
-
 /** Parameters for configuring a Context */
 interface Options {
   /**
    * List of allowable CSS properties
    */
   whitelist?: Whitelist;
+
+  /**
+   * Wether links [url](text) are allowed.
+   */
+  links?: boolean;
 }
+
+const defaultOptions = {
+  whitelist: {
+    para: [...defaultCommonProps, 'text-align', 'margin', 'padding'],
+    span: [...defaultCommonProps],
+    cont: [...defaultCommonProps],
+  },
+  links: true,
+};
 
 /** Primary user-facing entry point */
 class Context {
   whitelist: CompiledWhitelist;
-
+  links: boolean;
   /** Create a context
    *
    * @param options Optional configs. If none is provided, sane defautls will be used.
    */
   constructor(options?: Options) {
-    if (!options) options = {};
-    if (!options.whitelist) options.whitelist = defaultWhitelist;
+    if (!options) options = defaultOptions;
 
-    this.whitelist = compileWhitelist(options.whitelist);
+    this.whitelist = compileWhitelist(options.whitelist || defaultOptions.whitelist);
+    this.links = options.links !== undefined ? options.links : defaultOptions.links;
   }
 
   /** Compiles a style
@@ -79,7 +86,7 @@ class Context {
     styles = [...styles, compiledEdgeMatter.style];
 
     const styleLut = StyleNS.buildLUT(styles);
-    const paragraphs = precompiled.paragraphs.map((p) => TextNS.compileParagraph(p, styleLut));
+    const paragraphs = precompiled.paragraphs.map((p) => TextNS.compileParagraph(p, styleLut, { links: this.links }));
 
     return { paragraphs, styles };
   }
@@ -101,4 +108,4 @@ class Context {
   }
 }
 
-export { Options, Context, Whitelist, defaultWhitelist, Style, Text };
+export { Options, Context, Whitelist, defaultOptions, Style, Text };

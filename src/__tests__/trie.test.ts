@@ -29,6 +29,11 @@ describe('Trie string walk', () => {
     expect(t.firstFirstMatch('abcdef')).toStrictEqual([-1, []]);
   });
 
+  it('works in the single character case', () => {
+    const tmp = new Trie(['*']);
+    expect(tmp.firstFirstMatch('*')).toStrictEqual([0, ['*']]);
+  });
+
   it('Locates a single string', () => {
     expect(t.firstFirstMatch('123alabc')).toStrictEqual([3, ['al']]);
   });

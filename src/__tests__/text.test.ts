@@ -1,4 +1,4 @@
-import { compileEdgeMatter, compileParagraph, precompile } from '../text';
+import { compileEdgeMatter, compileParagraph, extractLinks, precompile } from '../text';
 import * as style from '../style';
 import { compileWhitelist } from '../whitelist';
 
@@ -223,6 +223,44 @@ describe('Style span', () => {
       '**hi ',
       { contents: ['there'], styles: ['_'] },
       ' world',
+    ]);
+  });
+});
+
+describe('Extract links', () => {
+  it('Works alone', () => {
+    const sut = extractLinks('[http://example.com](yo)');
+    expect(sut).toStrictEqual([{ url: 'http://example.com', contents: ['yo'] }]);
+  });
+
+  it('Works in context', () => {
+    const sut = extractLinks('hello [http://example.com](yo) world');
+    expect(sut).toStrictEqual(['hello ', { url: 'http://example.com', contents: ['yo'] }, ' world']);
+  });
+
+  it('Finds multiples', () => {
+    const sut = extractLinks('hello [http://example.com](yo) world [http://perdu.com](sup)');
+    expect(sut).toStrictEqual([
+      'hello ',
+      { url: 'http://example.com', contents: ['yo'] },
+      ' world ',
+      { url: 'http://perdu.com', contents: ['sup'] },
+    ]);
+  });
+
+  it('Externally styled', () => {
+    const sut = compileParagraph(['*[http://example.com](yo)*'], simpleStyleLUT);
+
+    expect(sut.contents).toStrictEqual([
+      { styles: ['*'], contents: [{ url: 'http://example.com', contents: ['yo'] }] },
+    ]);
+  });
+
+  it('Internally styled', () => {
+    const sut = compileParagraph(['[http://example.com](*yo*)'], simpleStyleLUT);
+
+    expect(sut.contents).toStrictEqual([
+      { url: 'http://example.com', contents: [{ styles: ['*'], contents: ['yo'] }] },
     ]);
   });
 });

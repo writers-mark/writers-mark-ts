@@ -51,7 +51,7 @@ export class Trie {
         }
         current = next;
       } else if (matches.length !== 0) {
-        return [matchStart, matches.reverse()];
+        break;
       } else {
         if (matchStart !== -1) {
           cursor = matchStart + 1;
@@ -61,6 +61,6 @@ export class Trie {
       }
     }
 
-    return [-1, []];
+    return [matchStart, matches.reverse()];
   }
 }
