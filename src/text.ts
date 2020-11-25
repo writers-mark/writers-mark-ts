@@ -1,3 +1,4 @@
+import { defaultOptions } from '.';
 import * as Style from './style';
 import { Trie } from './trie';
 import { CompiledWhitelist } from './whitelist';
