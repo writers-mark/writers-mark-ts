@@ -1,4 +1,4 @@
-import { Context, defaultWhitelist } from '../index';
+import { Context, defaultOptions } from '../index';
 import * as textModule from '../text';
 
 /* tslint:disable:no-string-literal */
@@ -51,7 +51,7 @@ describe('Using explicitely default options', () => {
 });
 
 describe('Using explicitely default whitelist', () => {
-  const ctx = new Context({ whitelist: defaultWhitelist });
+  const ctx = new Context({ whitelist: defaultOptions.whitelist });
   it('does a single pass compile', () => {
     const style = ctx.compileStyle('para aaa {color: red;}');
     expect(style.para.aaa.props.color).toBe('red');
