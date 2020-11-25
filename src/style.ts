@@ -1,9 +1,11 @@
+import { Trie } from './trie';
 import { allowValue } from './validation';
 import { CompiledWhitelist, WhitelistFilter } from './whitelist';
 
 export interface StyleLUT {
   para: Set<string>;
   span: Record<string, string>;
+  spanTrie: Trie;
 }
 
 export interface Style {
@@ -149,11 +151,17 @@ export const buildLUT = (styles: Style[]): StyleLUT => {
   const para = new Set<string>();
   const span: Record<string, string> = {};
 
+  const spanKeys: string[] = [];
   for (const s of styles) {
     Object.keys(s.para).forEach((k) => para.add(k));
-    Object.keys(s.span).forEach((k) => (span[k] = s.span[k].endPattern || k));
+    Object.keys(s.span).forEach((k) => {
+      span[k] = s.span[k].endPattern || k;
+      spanKeys.push(k);
+    });
   }
-  return { para, span };
+
+  const spanTrie: Trie = new Trie(spanKeys);
+  return { para, span, spanTrie };
 };
 
 export const isValid = (style: Style, whitelist: CompiledWhitelist): boolean => {

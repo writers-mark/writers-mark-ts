@@ -1,4 +1,6 @@
+import { defaultOptions } from '.';
 import * as Style from './style';
+import { Trie } from './trie';
 import { CompiledWhitelist } from './whitelist';
 
 const EDGEMATTER_DELIMITER = '---';
@@ -14,11 +16,30 @@ export interface CompiledEdgeMatter {
   style: Style.Style;
 }
 
-export type Content = string | Span;
+export type Content = string | Span | Link;
 export interface Span {
   contents: Content[];
   styles: string[];
 }
+
+export interface Link {
+  url: string;
+  contents: Content[];
+}
+
+export const isSpan = (x: string | Span | Link): x is Span => {
+  const asSpan = x as Span;
+  return asSpan.contents !== undefined && asSpan.styles !== undefined;
+};
+
+export const isLink = (x: string | Span | Link): x is Span => {
+  const asLink = x as Link;
+  return asLink.url !== undefined && asLink.contents !== undefined;
+};
+
+export const isString = (x: string | Span | Link): x is string => {
+  return !isSpan(x) && !isLink(x);
+};
 
 export interface CompiledParagraph {
   contents: Content[];
@@ -99,51 +120,175 @@ export const compileEdgeMatter = (data: string, whitelist: CompiledWhitelist): C
   return { style: Style.compile(data, whitelist) };
 };
 
-const applySpanRules = (data: string, styleLut: Style.StyleLUT): Content[] => {
-  let rule = '';
-  let start = data.length;
-  let payloadStart = data.length;
-  let end = data.length;
-  let postEnd = data.length;
+const applySpanRules = (input: Content[], styleLut: Style.StyleLUT): Content[] => {
+  interface Entry {
+    tgt: Content[];
+    data: Content[];
+  }
+  const queue: Entry[] = [];
+  const apply = (tgt: Content[], data: Content[]) => {
+    queue.push({ tgt, data });
+  };
 
-  for (const bPat of Object.keys(styleLut.span)) {
-    const ePat = styleLut.span[bPat];
-    const startMatch = data.indexOf(bPat);
-    if (startMatch === -1 || startMatch > start || (startMatch === start && bPat.length < rule.length)) {
-      continue;
+  const result: Content[] = [];
+  apply(result, input);
+
+  while (queue.length > 0) {
+    const { data, tgt } = queue.shift()!;
+
+    let matchMade = false;
+    ///////////////////////////////////
+    for (let startIndex = 0; startIndex < data.length && !matchMade; ++startIndex) {
+      const startData = data[startIndex];
+
+      if (isString(startData)) {
+        let startAt = 0;
+        while (startAt < startData.length && !matchMade) {
+          const [startPos, matches] = styleLut.spanTrie.firstFirstMatch(startData, startAt);
+
+          if (startPos !== -1) {
+            for (let pBegIndex = 0; pBegIndex !== matches.length && !matchMade; pBegIndex++) {
+              const pBeg = matches[pBegIndex];
+              const pEnd = styleLut.span[pBeg];
+
+              let searchStart = startPos + 1;
+              for (let endIndex = startIndex; endIndex < data.length && !matchMade; ++endIndex) {
+                const endData = data[endIndex];
+                if (isString(endData)) {
+                  const pEndLoc = endData.indexOf(pEnd, searchStart);
+                  if (pEndLoc !== -1 && (endIndex !== startIndex || pEndLoc !== startPos + pBeg.length)) {
+                    matchMade = true;
+
+                    // All of the data of the matched section up to the starting mark
+                    // gets outputed as is.
+                    if (startPos !== 0) {
+                      tgt.push(startData.slice(0, startPos));
+                    }
+
+                    // Output the span and queue its content for processing
+                    const spanContents: Content[] = [];
+                    let cursor = startPos + pBeg.length;
+                    let walkIndex = startIndex;
+
+                    while (walkIndex !== endIndex) {
+                      const walkData = data[walkIndex];
+                      if (isString(walkData)) {
+                        if (cursor !== walkData.length) {
+                          spanContents.push(walkData.slice(cursor));
+                        }
+                      } else {
+                        const content = walkData.contents;
+                        walkData.contents = [];
+                        apply(walkData.contents, content);
+
+                        spanContents.push(walkData);
+                      }
+
+                      cursor = 0;
+                      walkIndex++;
+                    }
+
+                    if (pEndLoc !== 0) {
+                      spanContents.push(endData.slice(cursor, pEndLoc));
+                    }
+
+                    const newSpan: Span = { contents: [], styles: [pBeg] };
+                    tgt.push(newSpan);
+                    apply(newSpan.contents, spanContents);
+                    // Queue the remaining data for processing
+
+                    const remainder: Content[] = [];
+                    if (pEndLoc + pEnd.length !== endData.length) {
+                      remainder.push(endData.slice(pEndLoc + pEnd.length));
+                    }
+
+                    for (let endWalkIndex = endIndex + 1; endWalkIndex !== data.length; endWalkIndex++) {
+                      remainder.push(data[endWalkIndex]);
+                    }
+
+                    apply(tgt, remainder);
+                  }
+                }
+
+                searchStart = 0;
+              }
+            }
+            startAt = startPos + 1;
+          } else {
+            break;
+          }
+        }
+      }
+
+      // If we failed to open a span in that section, file it as is
+      // and move on to the next.
+      if (!matchMade) {
+        if (isLink(startData)) {
+          const content = startData.contents;
+          startData.contents = [];
+          apply(startData.contents, content);
+        }
+        tgt.push(startData);
+      }
     }
-
-    const payloadStartMatch = startMatch + bPat.length;
-    const endMatch = data.indexOf(ePat, payloadStartMatch);
-    if (endMatch === -1) {
-      continue;
-    }
-
-    rule = bPat;
-    start = startMatch;
-    payloadStart = payloadStartMatch;
-    end = endMatch;
-    postEnd = end + ePat.length;
   }
 
-  if (rule !== '') {
-    const prefix = data.substr(0, start);
-    const current = {
-      contents: applySpanRules(data.substr(payloadStart, end - payloadStart), styleLut),
-      styles: [rule],
-    };
-    const postfixStr = data.substr(postEnd);
-
-    const postfixArray = postfixStr.length > 0 ? applySpanRules(data.substr(postEnd), styleLut) : [];
-    const prefixArray = prefix.length > 0 ? [prefix] : [];
-
-    return [...prefixArray, current, ...postfixArray];
-  } else {
-    return [data];
-  }
+  return result;
 };
 
-export const compileParagraph = (p: Paragraph, styleLut: Style.StyleLUT): CompiledParagraph => {
+export const extractLinks = (data: string): (string | Link)[] => {
+  const result: (string | Link)[] = [];
+
+  let cursor = 0;
+  let offset = 0;
+  while (cursor < data.length) {
+    const openLoc = data.indexOf('[', cursor + offset);
+    offset = 0;
+
+    // No open at all, just bail out.
+    if (openLoc === -1) {
+      if (cursor !== data.length) {
+        result.push(data.slice(cursor));
+      }
+      break;
+    } else {
+      let matchMade = false;
+      const closeLoc = data.indexOf(']', openLoc);
+      if (closeLoc !== -1) {
+        const parensOpenLoc = closeLoc + 1;
+        if (parensOpenLoc < data.length && data[parensOpenLoc] === '(') {
+          const parensCloseLoc = data.indexOf(')', parensOpenLoc + 1);
+          if (parensCloseLoc !== -1) {
+            matchMade = true;
+            if (openLoc !== cursor) {
+              result.push(data.slice(cursor, openLoc));
+            }
+            result.push({
+              url: data.slice(openLoc + 1, closeLoc),
+              contents: [data.slice(parensOpenLoc + 1, parensCloseLoc)],
+            });
+            cursor = parensCloseLoc + 1;
+          }
+        }
+      }
+
+      if (!matchMade) {
+        offset += 1;
+      }
+    }
+  }
+  return result;
+};
+
+interface ParagraphOptions {
+  links: boolean;
+}
+
+export const compileParagraph = (
+  p: Paragraph,
+  styleLut: Style.StyleLUT,
+  options: ParagraphOptions,
+): CompiledParagraph => {
   const styles: string[] = [];
 
   // Step 1: Identify styles to apply and combine all lines into a single block of text
@@ -161,8 +306,13 @@ export const compileParagraph = (p: Paragraph, styleLut: Style.StyleLUT): Compil
     }
   }
 
-  // Step 2: apply span rules.
-  const contents = applySpanRules(text, styleLut);
+  let contents: Content[] = [];
+  if (options.links) {
+    contents = extractLinks(text);
+  }
+
+  contents = applySpanRules(contents, styleLut);
+
   return { contents, styles };
 };
 

@@ -1,4 +1,4 @@
-import { compileEdgeMatter, compileParagraph, precompile } from '../text';
+import { compileEdgeMatter, compileParagraph, extractLinks, precompile } from '../text';
 import * as style from '../style';
 import { compileWhitelist } from '../whitelist';
 
@@ -157,12 +157,12 @@ describe('Edgematter compilation', () => {
 
 describe('compile paragraph', () => {
   describe('simple single line', () => {
-    const sut = compileParagraph(['hello'], blankStyleLUT);
+    const sut = compileParagraph(['hello'], blankStyleLUT, {links:true});
     expect(sut.contents.length).toBe(1);
   });
 
   describe('simple multi line', () => {
-    const sut = compileParagraph(['hello', 'world'], blankStyleLUT);
+    const sut = compileParagraph(['hello', 'world'], blankStyleLUT, {links:true});
     expect(sut.contents.length).toBe(1);
     expect(sut.contents).toStrictEqual(['hello world']);
   });
@@ -170,21 +170,21 @@ describe('compile paragraph', () => {
 
 describe('Style paragraph', () => {
   describe('Applies single style', () => {
-    const sut = compileParagraph(['#', 'world'], simpleStyleLUT);
+    const sut = compileParagraph(['#', 'world'], simpleStyleLUT, {links:true});
     expect(sut.contents.length).toBe(1);
     expect(sut.contents).toStrictEqual(['world']);
     expect(sut.styles).toStrictEqual(['#']);
   });
 
   describe('Applies multiple styles', () => {
-    const sut = compileParagraph(['#', '__', 'world'], simpleStyleLUT);
+    const sut = compileParagraph(['#', '__', 'world'], simpleStyleLUT, {links:true});
     expect(sut.contents.length).toBe(1);
     expect(sut.contents).toStrictEqual(['world']);
     expect(sut.styles).toStrictEqual(['#', '__']);
   });
 
   describe('Aborts reading styles', () => {
-    const sut = compileParagraph(['a', '__', 'world'], simpleStyleLUT);
+    const sut = compileParagraph(['a', '__', 'world'], simpleStyleLUT, {links:true});
     expect(sut.contents.length).toBe(1);
     expect(sut.contents).toStrictEqual(['a __ world']);
     expect(sut.styles).toStrictEqual([]);
@@ -193,17 +193,17 @@ describe('Style paragraph', () => {
 
 describe('Style span', () => {
   describe('Applies single style', () => {
-    const sut = compileParagraph(['*world*'], simpleStyleLUT);
+    const sut = compileParagraph(['*world*'], simpleStyleLUT, {links:true});
     expect(sut.contents).toStrictEqual([{ contents: ['world'], styles: ['*'] }]);
   });
 
   describe('Match in the middle', () => {
-    const sut = compileParagraph(['hi *there* world'], simpleStyleLUT);
+    const sut = compileParagraph(['hi *there* world'], simpleStyleLUT, {links:true});
     expect(sut.contents).toStrictEqual(['hi ', { contents: ['there'], styles: ['*'] }, ' world']);
   });
 
   describe('Partial match', () => {
-    const sut = compileParagraph(['wo*rld'], simpleStyleLUT);
+    const sut = compileParagraph(['wo*rld'], simpleStyleLUT, {links:true});
     expect(sut.contents).toStrictEqual(['wo*rld']);
   });
 
@@ -211,12 +211,56 @@ describe('Style span', () => {
     const s = style.compile('span * {} span ** {} span __ {} span _ {}', blankWhitelist);
     const sLUT = style.buildLUT([s]);
 
-    expect(compileParagraph(['**hi *there* world**'], sLUT).contents).toStrictEqual([
+    expect(compileParagraph(['**hi *there* world**'], sLUT, {links:true}).contents).toStrictEqual([
       { styles: ['**'], contents: ['hi ', { contents: ['there'], styles: ['*'] }, ' world'] },
     ]);
 
-    expect(compileParagraph(['__hi _there_ world__'], sLUT).contents).toStrictEqual([
+    expect(compileParagraph(['__hi _there_ world__'], sLUT, {links:true}).contents).toStrictEqual([
       { styles: ['__'], contents: ['hi ', { contents: ['there'], styles: ['_'] }, ' world'] },
+    ]);
+
+    expect(compileParagraph(['**hi _there_ world'], sLUT, {links:true}).contents).toStrictEqual([
+      '**hi ',
+      { contents: ['there'], styles: ['_'] },
+      ' world',
+    ]);
+  });
+});
+
+describe('Extract links', () => {
+  it('Works alone', () => {
+    const sut = extractLinks('[http://example.com](yo)');
+    expect(sut).toStrictEqual([{ url: 'http://example.com', contents: ['yo'] }]);
+  });
+
+  it('Works in context', () => {
+    const sut = extractLinks('hello [http://example.com](yo) world');
+    expect(sut).toStrictEqual(['hello ', { url: 'http://example.com', contents: ['yo'] }, ' world']);
+  });
+
+  it('Finds multiples', () => {
+    const sut = extractLinks('hello [http://example.com](yo) world [http://perdu.com](sup)');
+    expect(sut).toStrictEqual([
+      'hello ',
+      { url: 'http://example.com', contents: ['yo'] },
+      ' world ',
+      { url: 'http://perdu.com', contents: ['sup'] },
+    ]);
+  });
+
+  it('Externally styled', () => {
+    const sut = compileParagraph(['*[http://example.com](yo)*'], simpleStyleLUT, {links:true});
+
+    expect(sut.contents).toStrictEqual([
+      { styles: ['*'], contents: [{ url: 'http://example.com', contents: ['yo'] }] },
+    ]);
+  });
+
+  it('Internally styled', () => {
+    const sut = compileParagraph(['[http://example.com](*yo*)'], simpleStyleLUT, {links:true});
+
+    expect(sut.contents).toStrictEqual([
+      { url: 'http://example.com', contents: [{ styles: ['*'], contents: ['yo'] }] },
     ]);
   });
 });
