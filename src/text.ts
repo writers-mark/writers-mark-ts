@@ -5,10 +5,10 @@ import { CompiledWhitelist } from './whitelist';
 
 const EDGEMATTER_DELIMITER = '---';
 
-export type Paragraph = string[];
+export type PrecompiledParagraph = string[];
 
 export interface PrecompiledText {
-  paragraphs: Paragraph[];
+  paragraphs: PrecompiledParagraph[];
   edgeMatter: string;
 }
 
@@ -32,7 +32,7 @@ export const isSpan = (x: string | Span | Link): x is Span => {
   return asSpan.contents !== undefined && asSpan.styles !== undefined;
 };
 
-export const isLink = (x: string | Span | Link): x is Span => {
+export const isLink = (x: string | Span | Link): x is Link => {
   const asLink = x as Link;
   return asLink.url !== undefined && asLink.contents !== undefined;
 };
@@ -51,52 +51,35 @@ export interface CompiledText {
   styles: Style.Style[];
 }
 
-const trimBlanks = (lines: string[]): void => {
-  while (lines.length > 0 && lines[0] === '') {
-    lines.shift();
-  }
-
-  while (lines.length > 0 && lines[lines.length - 1] === '') {
-    lines.pop();
-  }
-};
-
-const extractEdgeMatter = (lines: string[]): string => {
-  if (lines.length < 2) {
-    return '';
-  }
-
-  let result: string[] = [];
-
-  // If there is front-matter
-  if (lines[0] === EDGEMATTER_DELIMITER) {
-    const frontMatterEnd = lines.indexOf(EDGEMATTER_DELIMITER, 1);
-    if (frontMatterEnd !== -1) {
-      result = lines.slice(1, frontMatterEnd);
-      lines.splice(0, frontMatterEnd + 1);
-    }
-  }
-
-  // If there is back-matter
-  if (lines.length > 1 && lines[lines.length - 1] === EDGEMATTER_DELIMITER) {
-    const endMatterStart = lines.lastIndexOf(EDGEMATTER_DELIMITER, lines.length - 2);
-    if (endMatterStart !== -1) {
-      result = result.concat(lines.slice(endMatterStart + 1, lines.length - 1));
-      lines.splice(endMatterStart);
-    }
-  }
-
-  return result.join('\n');
-};
-
 export const precompile = (data: string): PrecompiledText => {
-  const lines = data.split('\n').map((s) => s.trim());
+  let payloadStart = 0;
+  let payloadEnd = data.length;
 
-  const edgeMatter = extractEdgeMatter(lines);
-  trimBlanks(lines);
+  // extract edgematter
+  let edgeMatter = '';
+  if (data.startsWith('---\n')) {
+    const fmEnd = data.indexOf('\n---\n');
+    if (fmEnd !== -1) {
+      payloadStart = fmEnd + 5;
+      edgeMatter = data.slice(4, fmEnd);
+    }
+  }
 
-  const paragraphs: string[][] = [];
+  if (data.endsWith('\n---')) {
+    const bmEnd = data.lastIndexOf('\n---\n');
+    if (bmEnd !== -1) {
+      payloadEnd = bmEnd;
+      edgeMatter += data.slice(bmEnd + 5, -4);
+    }
+  }
 
+  // Break up paragraphs.
+  const lines = data
+    .slice(payloadStart, payloadEnd)
+    .split('\n')
+    .map((s) => s.trim());
+
+  const paragraphs: PrecompiledParagraph[] = [];
   let current: string[] = [];
   for (const line of lines) {
     if (line === '') {
@@ -113,123 +96,125 @@ export const precompile = (data: string): PrecompiledText => {
     paragraphs.push(current);
     current = [];
   }
+
   return { paragraphs, edgeMatter };
 };
 
 export const compileEdgeMatter = (data: string, whitelist: CompiledWhitelist): CompiledEdgeMatter => {
+  // For the time being, edgematter can only contain a style.
   return { style: Style.compile(data, whitelist) };
 };
 
-const applySpanRules = (input: Content[], styleLut: Style.StyleLUT): Content[] => {
+/** Appends a slice to a content list if that slice would not be empty. */
+const maybeAppendSlice = (tgt: Content[], data: string, from: number, to: number) => {
+  if (from !== to) {
+    tgt.push(data.slice(from, to));
+  }
+};
+
+const applySpanRules = (input: (string | Link)[], styleLut: Style.StyleLUT): Content[] => {
+  const result: Content[] = [];
+
   interface Entry {
     tgt: Content[];
-    data: Content[];
+    data: (string | Link)[];
   }
-  const queue: Entry[] = [];
-  const apply = (tgt: Content[], data: Content[]) => {
-    queue.push({ tgt, data });
-  };
 
-  const result: Content[] = [];
-  apply(result, input);
+  // N.B. Work units are processed out of order so that we can used the faster push/pop.
+  const work: Entry[] = [{ tgt: result, data: input }];
+  while (work.length > 0) {
+    const { tgt, data } = work.pop()!;
 
-  while (queue.length > 0) {
-    const { data, tgt } = queue.shift()!;
+    // Look for a opening mark.
+    for (let startBlock = 0; startBlock < data.length; ++startBlock) {
+      let startData = data[startBlock];
 
-    let matchMade = false;
-    ///////////////////////////////////
-    for (let startIndex = 0; startIndex < data.length && !matchMade; ++startIndex) {
-      const startData = data[startIndex];
+      if (isLink(startData)) {
+        // Replace the link's content with its processed equivalent
+        const content = startData.contents;
+        startData.contents = [];
+        work.push({ tgt: startData.contents, data: content as (string | Link)[] });
 
-      if (isString(startData)) {
-        let startAt = 0;
-        while (startAt < startData.length && !matchMade) {
-          const [startPos, matches] = styleLut.spanTrie.firstFirstMatch(startData, startAt);
+        tgt.push(startData);
+        continue;
+      }
 
-          if (startPos !== -1) {
-            for (let pBegIndex = 0; pBegIndex !== matches.length && !matchMade; pBegIndex++) {
-              const pBeg = matches[pBegIndex];
-              const pEnd = styleLut.span[pBeg];
+      let startBlockTailLoc = 0; // All data after this location has not been handled yet.
 
-              let searchStart = startPos + 1;
-              for (let endIndex = startIndex; endIndex < data.length && !matchMade; ++endIndex) {
-                const endData = data[endIndex];
-                if (isString(endData)) {
-                  const pEndLoc = endData.indexOf(pEnd, searchStart);
-                  if (pEndLoc !== -1 && (endIndex !== startIndex || pEndLoc !== startPos + pBeg.length)) {
-                    matchMade = true;
+      for (let beginSearchLoc = 0; beginSearchLoc < (startData as string).length; beginSearchLoc++) {
+        // There are three possible scenarios here:
+        // 1. No starting mark is found: We break out of the loop.
+        // 2. An opening and closing mark pair is found: startBlock and beginSearchLoc will be updated to after the closing mark.
+        // 3. An orphaned opening mark is found: the loop will repeat with beginSearchLoc incremented by 1.
 
-                    // All of the data of the matched section up to the starting mark
-                    // gets outputed as is.
-                    if (startPos !== 0) {
-                      tgt.push(startData.slice(0, startPos));
-                    }
+        const [startPos, matches] = styleLut.spanTrie.firstFirstMatch(startData as string, beginSearchLoc);
+        if (startPos === -1) break;
 
-                    // Output the span and queue its content for processing
-                    const spanContents: Content[] = [];
-                    let cursor = startPos + pBeg.length;
-                    let walkIndex = startIndex;
+        // For each span rule that begins here, from longest to shortest.
+        pattern_loop: for (let pBegIndex = 0; pBegIndex !== matches.length; pBegIndex++) {
+          const pBeg = matches[pBegIndex]; // opening token
+          const pEnd = styleLut.span[pBeg]; // expected closing token
 
-                    while (walkIndex !== endIndex) {
-                      const walkData = data[walkIndex];
-                      if (isString(walkData)) {
-                        if (cursor !== walkData.length) {
-                          spanContents.push(walkData.slice(cursor));
-                        }
-                      } else {
-                        const content = walkData.contents;
-                        walkData.contents = [];
-                        apply(walkData.contents, content);
+          for (
+            let endSearchLoc = startPos + 1, endBlock = startBlock;
+            endBlock < data.length;
+            ++endBlock, endSearchLoc = 0
+          ) {
+            const endBlockData = data[endBlock];
+            if (isString(endBlockData)) {
+              const pEndLoc = endBlockData.indexOf(pEnd, endSearchLoc);
 
-                        spanContents.push(walkData);
-                      }
+              // If this is an opening immediately followed by a closing, disregard it.
+              if (endBlock === startBlock && pEndLoc === startPos + pBeg.length) {
+                break;
+              }
 
-                      cursor = 0;
-                      walkIndex++;
-                    }
+              if (pEndLoc !== -1) {
+                // We officially have a marked span at this point.
 
-                    if (pEndLoc !== 0) {
-                      spanContents.push(endData.slice(cursor, pEndLoc));
-                    }
+                // All unhandled data up to the starting mark gets outputed as is.
+                maybeAppendSlice(tgt, startData as string, startBlockTailLoc, startPos);
 
-                    const newSpan: Span = { contents: [], styles: [pBeg] };
-                    tgt.push(newSpan);
-                    apply(newSpan.contents, spanContents);
-                    // Queue the remaining data for processing
+                // Identify all of the span's content.
+                const spanContents: (string | Link)[] = [];
 
-                    const remainder: Content[] = [];
-                    if (pEndLoc + pEnd.length !== endData.length) {
-                      remainder.push(endData.slice(pEndLoc + pEnd.length));
-                    }
+                let spanDataStartLoc = startPos + pBeg.length;
+                if (startBlock !== endBlock) {
+                  // Anything from the start mark to the end of the starting block
+                  maybeAppendSlice(spanContents, startData as string, spanDataStartLoc, (startData as string).length);
+                  spanDataStartLoc = 0;
 
-                    for (let endWalkIndex = endIndex + 1; endWalkIndex !== data.length; endWalkIndex++) {
-                      remainder.push(data[endWalkIndex]);
-                    }
-
-                    apply(tgt, remainder);
+                  // All intermediate blocks
+                  for (let walkBlock = startBlock + 1; walkBlock < endBlock; walkBlock++) {
+                    spanContents.push(data[walkBlock]);
                   }
                 }
 
-                searchStart = 0;
-              }
-            }
-            startAt = startPos + 1;
-          } else {
-            break;
-          }
-        }
-      }
+                // Data up to the closing mark. Either from the starting mark, or the start of the block.
+                maybeAppendSlice(spanContents, endBlockData, spanDataStartLoc, pEndLoc);
 
-      // If we failed to open a span in that section, file it as is
-      // and move on to the next.
-      if (!matchMade) {
-        if (isLink(startData)) {
-          const content = startData.contents;
-          startData.contents = [];
-          apply(startData.contents, content);
-        }
-        tgt.push(startData);
-      }
+                // Contents will be populated when the work unit will be processed.
+                const newSpan: Span = { contents: [], styles: [pBeg] };
+                tgt.push(newSpan);
+
+                // The contents of the span itself needs to be processed recursively.
+                work.push({ tgt: newSpan.contents, data: spanContents });
+
+                // Resume the search for spans after the closing mark.
+                startBlockTailLoc = pEndLoc + pEnd.length;
+                beginSearchLoc = startBlockTailLoc - 1; // -1 because it will be incremented by the for loop.
+                startBlock = endBlock;
+                startData = data[startBlock];
+
+                break pattern_loop;
+              } // if (pEndLoc !== -1 && (endIndex !== startIndex || pEndLoc !== startPos + pBeg.length))
+            } // if (isString(endData)) {
+          } // for (let endIndex = startIndex; endIndex < data.length ; ++endIndex)
+        } // pattern_loop: for (let pBegIndex = 0; pBegIndex !== matches.length; pBegIndex++)
+      } // for (let beginSearchLoc = 0; beginSearchLoc < startDataAsString.length; beginSearchLoc++)
+
+      // Anything left after we reach the end of the block gets appended as is.
+      maybeAppendSlice(tgt, startData as string, startBlockTailLoc, (startData as string).length);
     }
   }
 
@@ -241,25 +226,26 @@ export const extractLinks = (data: string): (string | Link)[] => {
 
   let cursor = 0;
   let offset = 0;
+
   while (cursor < data.length) {
     const openLoc = data.indexOf('[', cursor + offset);
-    offset = 0;
 
-    // No open at all, just bail out.
     if (openLoc === -1) {
-      if (cursor !== data.length) {
-        result.push(data.slice(cursor));
-      }
+      if (cursor !== data.length) result.push(data.slice(cursor));
       break;
     } else {
-      let matchMade = false;
       const closeLoc = data.indexOf(']', openLoc);
-      if (closeLoc !== -1) {
+      if (closeLoc === -1) {
+        if (cursor !== data.length) result.push(data.slice(cursor));
+        break;
+      } else {
+        // If we don't make a match, we can restart the search from this location.
+        offset += closeLoc - cursor;
+
         const parensOpenLoc = closeLoc + 1;
         if (parensOpenLoc < data.length && data[parensOpenLoc] === '(') {
           const parensCloseLoc = data.indexOf(')', parensOpenLoc + 1);
           if (parensCloseLoc !== -1) {
-            matchMade = true;
             if (openLoc !== cursor) {
               result.push(data.slice(cursor, openLoc));
             }
@@ -268,12 +254,9 @@ export const extractLinks = (data: string): (string | Link)[] => {
               contents: [data.slice(parensOpenLoc + 1, parensCloseLoc)],
             });
             cursor = parensCloseLoc + 1;
+            offset = 0;
           }
         }
-      }
-
-      if (!matchMade) {
-        offset += 1;
       }
     }
   }
@@ -285,7 +268,7 @@ interface ParagraphOptions {
 }
 
 export const compileParagraph = (
-  p: Paragraph,
+  p: PrecompiledParagraph,
   styleLut: Style.StyleLUT,
   options: ParagraphOptions,
 ): CompiledParagraph => {
@@ -308,10 +291,10 @@ export const compileParagraph = (
 
   let contents: Content[] = [];
   if (options.links) {
-    contents = extractLinks(text);
+    contents = applySpanRules(extractLinks(text), styleLut);
+  } else {
+    contents = applySpanRules([text], styleLut);
   }
-
-  contents = applySpanRules(contents, styleLut);
 
   return { contents, styles };
 };

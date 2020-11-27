@@ -86,7 +86,7 @@ describe('Multiple paragraphs with lots of whitespace', () => {
 
 describe('Edgematter extraction', () => {
   describe('Simple front matter', () => {
-    const sut = precompile('---\nhello\n---');
+    const sut = precompile('---\nhello\n---\n');
 
     it('has been extracted', () => {
       expect(sut.edgeMatter).toBe('hello');
@@ -197,6 +197,28 @@ describe('Style span', () => {
     expect(sut.contents).toStrictEqual([{ contents: ['world'], styles: ['*'] }]);
   });
 
+  describe('Consecutive matches', () => {
+    const sut = compileParagraph(['-hello-*world*'], simpleStyleLUT, { links: true });
+    expect(sut.contents).toStrictEqual([
+      { contents: ['hello'], styles: ['-'] },
+      { contents: ['world'], styles: ['*'] },
+    ]);
+  });
+
+  describe('immediate end', () => {
+    const sut = compileParagraph(['hel**loworld'], simpleStyleLUT, { links: true });
+    expect(sut.contents).toStrictEqual(['hel**loworld']);
+  });
+
+  describe('immediate end across blocks', () => {
+    const sut = compileParagraph(['aaa**[bbb](ccc)*ddd'], simpleStyleLUT, { links: true });
+    expect(sut.contents).toStrictEqual([
+      'aaa*',
+      { contents: [{ url: 'bbb', contents: ['ccc'] }], styles: ['*'] },
+      'ddd',
+    ]);
+  });
+
   describe('Match in the middle', () => {
     const sut = compileParagraph(['hi *there* world'], simpleStyleLUT, { links: true });
     expect(sut.contents).toStrictEqual(['hi ', { contents: ['there'], styles: ['*'] }, ' world']);
@@ -223,6 +245,17 @@ describe('Style span', () => {
       '**hi ',
       { contents: ['there'], styles: ['_'] },
       ' world',
+    ]);
+  });
+
+  it('Closing mark alone in block', () => {
+    const sut = compileParagraph(['*[http://example.com](yo)*[http://example.com](sup)'], simpleStyleLUT, {
+      links: true,
+    });
+
+    expect(sut.contents).toStrictEqual([
+      { styles: ['*'], contents: [{ url: 'http://example.com', contents: ['yo'] }] },
+      { url: 'http://example.com', contents: ['sup'] },
     ]);
   });
 });
@@ -261,6 +294,26 @@ describe('Extract links', () => {
 
     expect(sut.contents).toStrictEqual([
       { url: 'http://example.com', contents: [{ styles: ['*'], contents: ['yo'] }] },
+    ]);
+  });
+
+  it('Internally styled in middle of text', () => {
+    const sut = compileParagraph(['aaa[http://example.com](*yo*)bbb'], simpleStyleLUT, { links: true });
+
+    expect(sut.contents).toStrictEqual([
+      'aaa',
+      { url: 'http://example.com', contents: [{ styles: ['*'], contents: ['yo'] }] },
+      'bbb',
+    ]);
+  });
+
+  it('Internally styled followed by styled', () => {
+    const sut = compileParagraph(['[http://example.com](*yo*) *sup*'], simpleStyleLUT, { links: true });
+
+    expect(sut.contents).toStrictEqual([
+      { url: 'http://example.com', contents: [{ styles: ['*'], contents: ['yo'] }] },
+      ' ',
+      { styles: ['*'], contents: ['sup'] },
     ]);
   });
 });

@@ -13,6 +13,10 @@ const defaultCommonProps: string[] = [
   'text-decoration',
 ];
 
+const defaultParaProps: string[] = ['text-align', 'margin', 'padding'];
+const defaultSpanProps: string[] = [];
+const defaultContProps: string[] = [];
+
 type Style = StyleNS.Style;
 type Text = TextNS.CompiledText;
 
@@ -41,11 +45,15 @@ interface Options {
   links?: boolean;
 }
 
+interface InternalOptions {
+  links: boolean;
+}
+
 const defaultOptions = {
   whitelist: {
-    para: [...defaultCommonProps, 'text-align', 'margin', 'padding'],
-    span: [...defaultCommonProps],
-    cont: [...defaultCommonProps],
+    para: [...defaultCommonProps, ...defaultParaProps],
+    span: [...defaultCommonProps, ...defaultSpanProps],
+    cont: [...defaultCommonProps, ...defaultContProps],
   },
   links: true,
 };
@@ -53,7 +61,7 @@ const defaultOptions = {
 /** Primary user-facing entry point */
 class Context {
   whitelist: CompiledWhitelist;
-  links: boolean;
+  options: InternalOptions;
   /** Create a context
    *
    * @param options Optional configs. If none is provided, sane defautls will be used.
@@ -62,7 +70,9 @@ class Context {
     if (!options) options = defaultOptions;
 
     this.whitelist = compileWhitelist(options.whitelist || defaultOptions.whitelist);
-    this.links = options.links !== undefined ? options.links : defaultOptions.links;
+    this.options = {
+      links: options.links !== undefined ? options.links : defaultOptions.links,
+    };
   }
 
   /** Compiles a style
@@ -86,7 +96,7 @@ class Context {
     styles = [...styles, compiledEdgeMatter.style];
 
     const styleLut = StyleNS.buildLUT(styles);
-    const paragraphs = precompiled.paragraphs.map((p) => TextNS.compileParagraph(p, styleLut, { links: this.links }));
+    const paragraphs = precompiled.paragraphs.map((p) => TextNS.compileParagraph(p, styleLut, this.options));
 
     return { paragraphs, styles };
   }
