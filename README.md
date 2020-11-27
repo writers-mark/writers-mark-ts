@@ -48,7 +48,6 @@ Rendering the text as HTML/CSS is not within the scope of this module, please se
 ### CSS Whitelist
 
 While the library has sane defaults for allowed CSS properties, you are free to override the whitelist.
-Stars denote postfix wildcards.
 
 ```
 const ctx = new Context({
